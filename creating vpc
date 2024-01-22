@@ -1,0 +1,69 @@
+import boto3
+
+def create_vpc_resource():
+region_name = 'your-region'
+
+# Creating EC2 resource
+ec2_resource = boto3.resource('ec2', region_name=region_name)
+
+# Creating VPC
+my_vpc = ec2_resource.create_vpc(CidrBlock='10.0.0.0/16')
+my_vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'MyVpc'}])
+
+# Creating public subnets
+pub_subnet_1 = my_vpc.create_subnet(CidrBlock='10.0.1.0/24', AvailabilityZone=region_name)
+pub_subnet_2 = my_vpc.create_subnet(CidrBlock='10.0.2.0/24', AvailabilityZone=region_name)
+
+# Creating private subnet
+pvt_subnet_3 = my_vpc.create_subnet(CidrBlock='10.0.3.0/24', AvailabilityZone=region_name)
+
+# Creating NAT Gateway
+nat_gateway = ec2_resource.create_nat_gateway(SubnetId=pub_subnet_2.id)
+
+# Creating Internet Gateway and attaching it to the VPC
+internet_gateway = ec2_resource.create_internet_gateway()
+my_vpc.attach_internet_gateway(InternetGatewayId=internet_gateway.id)
+
+# Creating and associating route tables for public subnets
+route_table_pub1 = my_vpc.create_route_table()
+route_table_pub1.associate_with_subnet(SubnetId=pub_subnet_1.id)
+route_table_pub1.create_route(DestinationCidrBlock='0.0.0.0/0', GatewayId=internet_gateway.id)
+
+route_table_pub2 = my_vpc.create_route_table()
+route_table_pub2.associate_with_subnet(SubnetId=pub_subnet_2.id)
+route_table_pub2.create_route(DestinationCidrBlock='0.0.0.0/0', GatewayId=internet_gateway.id)
+
+# Creating and associating route table for a private subnet with NAT Gateway
+route_table_pvt3 = my_vpc.create_route_table()
+route_table_pvt3.associate_with_subnet(SubnetId=pvt_subnet_3.id)
+route_table_pvt3.create_route(DestinationCidrBlock='0.0.0.0/0', NatGatewayId=nat_gateway.id)
+
+# Creating instances in public and private subnets
+ec2_resource.create_instances(
+    ImageId='ami-id',
+    InstanceType='a2.medium',
+    SubnetId=pub_subnet_1.id
+)
+
+ec2_resource.create_instances(
+    ImageId='ami-id',
+    InstanceType='a2.medium',
+    SubnetId=pvt_subnet_3.id
+)
+
+# Creating a security group
+security_group1 = ec2_resource.create_security_group(
+    GroupName='SecurityGrp1',
+    Description='Public attached security group',
+    VpcId=my_vpc.id
+)
+ec2.authorize_security_group_ingress(GroupId = security_group1 ,
+    IpPermissions = [
+              {'IpProtocol':'tcp' ,
+                'FromPort':80,
+                'ToPort':80,
+                'IpRanges':[{'CidrIp':'0.0.0.0/0'}]
+                  }
+                )]
+if __name__ =="main" :
+          create_vpc_resource()
