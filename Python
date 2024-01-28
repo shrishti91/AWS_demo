@@ -1,0 +1,53 @@
+# Base Class: Account
+class Account:
+    def __init__(self, account_number):
+        self.account_number = account_number
+        self.balance = 0
+
+    def deposit(self, amount):
+        self.balance += amount
+        print(f"Deposited ${amount}. Current balance: ${self.balance}")
+
+    def withdraw(self, amount):
+        if amount <= self.balance:
+            self.balance -= amount
+            print(f"Withdrew ${amount}. Current balance: ${self.balance}")
+        else:
+            print("Insufficient funds!")
+
+# Derived Class 1: SavingsAccount (inherits from Account)
+class SavingsAccount(Account):
+    def __init__(self, account_number, interest_rate):
+        super().__init__(account_number)
+        self.interest_rate = interest_rate
+
+    def calculate_interest(self):
+        interest = self.balance * self.interest_rate / 100
+        print(f"Interest calculated: ${interest}")
+        self.balance += interest
+        print(f"New balance after interest: ${self.balance}")
+
+# Derived Class 2: CurrentAccount (inherits from Account)
+class CurrentAccount(Account):
+    def __init__(self, account_number, overdraft_limit):
+        super().__init__(account_number)
+        self.overdraft_limit = overdraft_limit
+
+    def withdraw(self, amount):
+        if amount <= (self.balance + self.overdraft_limit):
+            self.balance -= amount
+            print(f"Withdrew ${amount}. Current balance: ${self.balance}")
+        else:
+            print("Transaction declined. Overdraft limit exceeded.")
+
+# Example Usage
+savings_account = SavingsAccount(account_number="SA123", interest_rate=2.5)
+current_account = CurrentAccount(account_number="CA456", overdraft_limit=1000)
+
+savings_account.deposit(1000)
+savings_account.calculate_interest()
+savings_account.withdraw(500)
+
+current_account.deposit(2000)
+current_account.withdraw(1500)
+current_account.withdraw(2500)
