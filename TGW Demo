@@ -1,105 +1,101 @@
 import boto3
 
 def create_vpc_client():
-
 # Creating EC2 client
-
     ec2_client = boto3.client('ec2')
 
 # Creating VPC1
-
-    vpc1 = ec2_client.create_vpc(CidrBlock='10.0.0.0/16', vpc1_id = 'vpc-a01106c2')
+    vpc1 = ec2_client.create_vpc(CidrBlock='10.0.0.0/16')
+#Creating subnets of VPC1
+    pub_subnet_1 = ec2_client.create_subnet(CidrBlock='10.0.0.0/24', Availability Zone ='us-east-1a' )
+    priv_subnet_1 = ec2_client.create_subnet(CidrBlock='10.0.1.0/24',Availability Zone ='us-east-1a' )
 
 #Creating VPC2
-
-    vpc2 = ec2_client.create_vpc(CidrBlock='10.1.0.0/16' , vpc2_id = 'vpc-b01106c2')
+    vpc2 = ec2_client.create_vpc(CidrBlock='10.1.0.0/16')
+#Creating a subnet of VPC2
+    priv_subnet_2 = ec2_client.create_subnet(CidrBlock='10.1.0.0/24', Availability Zone ='us-east-1a' )
 
 #Creating VPC3
-
-    my_vpc3 = ec2_client.create_vpc(CidrBlock='10.2.0.0/16',vpc3_id = 'vpc-c01106c2')
-
-#Creating subnets of VPC1
-
-    pub_subnet_1 = ec2_client.create_subnet(CidrBlock='10.0.0.0/24', VpcId = vpc1_id , SubnetId = 'subnet-9d4a7b6a')
-
-    priv_subnet_1 = ec2_client.create_subnet(CidrBlock='10.0.1.0/24',VpcId = vpc1_id ,  SubnetId = 'subnet-9d4a7b6b' )
-
-#Creating a subnet of VPC2
-
-    priv_subnet_2 = ec2_client.create_subnet(CidrBlock='10.1.0.0/24', VpcId = vpc2_id , SubnetId ='subnet-9d4a7b6c' )
-
+    vpc3 = ec2_client.create_vpc(CidrBlock='10.2.0.0/16')
 #Creating a subnet of VPC3
+    priv_subnet_3 = ec2_client.create_subnet(CidrBlock='10.2.0.0/24', Availability Zone ='us-east-1a' )
 
-    priv_subnet_3 = ec2_client.create_subnet(CidrBlock='10.2.0.0/24', VpcId = vpc3_id ,SubnetId ='subnet-9d4a7b6d' )
+#creating route table for VPC-1
+ vpc1_rt = client.create_route_table(VpcId= vpc1.id)
+
+#Associating VPC_1 RT to subnets
+ vpc1_rt.associate_with_subnet(SubnetId = pub_subnet_1.id)
+ vpc1_rt.associate_with_subnet(SubnetId = priv_subnet_1.id)
+
+ #creating internet gateway
+ internet_gateway = ec2_client.create_internet_gateway()
+ vpc1.aatach.internet_gateway(InternetGatewayId=internet_gateway.id)
+
+#Creating route to Internet Gateway
+vpc1_rt1.create_route(DestinationCidrBlock='0.0.0.0/0', GatewayId=internet_gateway.id)
+
+#creating route table for VPC-2
+ vpc2_rt = client.create_route_table(VpcId= vpc2.id)
+
+#Associating VPC_2 RT to subnet
+ vpc2_rt.associate_with_subnet(SubnetId = priv_subnet_2.id)
+ 
+ #creating route table for VPC-3
+ vpc3_rt = client.create_route_table(VpcId= vpc3.id)
+
+#Associating VPC_2 RT to subnet
+ vpc3_rt.associate_with_subnet(SubnetId = priv_subnet_3.id)
 
 #Creating Transit Gateway
-
-    transit_gateway = ec2_client.create_transit_gateway(Description='MyTansitGateway' , TransitGatewayId = 'tgw-0262a0e521Example')
+    transit_gateway = ec2_client.create_transit_gateway(Description='MyTansitGateway' , TransitGatewayId = transit_gateway.id)
 
 #Attaching VPC1 to TGW
-
-    attach_vpc1 = ec2.client.create_transit_gateway_vpc_attachment(TransitGatewayId = 'tgw-0262a0e521Example', VpcId = vpc1_id ,
-
-     SubnetIds = [ 'subnet-9d4a7b6a' , 'subnet-9d4a7b6b'])
+attach_vpc1 = ec2.client.create_transit_gateway_vpc_attachment(TransitGatewayId = 'transit_gateway.id', VpcId = vpc1_id ,
+SubnetIds = [ 'pub_subnet_1.id' , 'priv_subnet_1.id'])
 
 #Attaching VPC2 to TGW
-
-      attach_vpc2 = ec2.client.create_transit_gateway_vpc_attachment(TransitGatewayId = 'tgw-0262a0e521Example', VpcId = vpc2_id ,
-
-       SubnetIds = ['subnet-9d4a7b6c'])
+attach_vpc2 = ec2.client.create_transit_gateway_vpc_attachment(TransitGatewayId = 'transit_gateway.id', VpcId = vpc2_id , 
+SubnetIds = ['priv_subnet_2.id'])
 
 #Attaching VPC3 to TGW
-
-     attach_vpc3 = ec2.client.create_transit_gateway_vpc_attachment(TransitGatewayId = 'tgw-0262a0e521Example', VpcId = vpc3_id ,
-
-      SubnetIds = ['subnet-9d4a7b6d'])
-
-#Updating VPC1 route table
-
-    vpc1_rt_update = ec2_client.create_route(DestinationCidrBlock = '10.1.0.0/16' , TransitGateawayId = 'tgw-0262a0e521Example', RouteTableId ='vpc1_rt1')
-
-#Updating VPC2 route table
-
-    vpc2_rt_update = ec2_client.create_route(DestinationCidrBlock = '10.0.0.0/16' , TransitGateawayId = 'tgw-0262a0e521Example', RouteTableId ='vpc2_rt2')
-
-    vpc2_rt_update = ec2_client.create_route(DestinationCidrBlock = '10.2.0.0/16' , TransitGateawayId = 'tgw-0262a0e521Example', RouteTableId ='vpc2_rt2')
-
-#Updating VPC3 route table
-
-    vpc3_rt_update = ec2_client.create_route(DestinationCidrBlock = '10.1.0.0/16' , TransitGateawayID = 'tgw-0262a0e521Example', RouteTableId ='vpc3_rt3')
+attach_vpc3 = ec2.client.create_transit_gateway_vpc_attachment(TransitGatewayId = 'transit_gateway.id', VpcId = vpc3_id ,
+SubnetIds = ['priv_subnet_2.id'])
 
 #Creating TGW route table
+    transit_gateway_rt1= ec2_client.create_transit_gateway_route_table(TransitGatewayId = transit_gateway.id , Description = 'TGW Route Table1')
 
-    transit_gateway_rt = ec2_client.create_transit_gateway_route_table(TransitGatewayId = 'tgw-0262a0e521Example' , Description = 'TGW Route Table')
+#Associating the TGW Route Table
+  transit_gateway_rt1_association = client.associate_transit_gateway_rt1(TransitGatewayRouteTableId =vpc1_rt.id , 
+  TransitGatewayAttachmentId = attach_vpc1.id)
+ 
+ #Propagating TGW-1 traffic
+ transit_gateway_rt1.client.enable_transit_gateway_route_table_propagation(
+  TransitGatewayRouteTableId =vpc1_rt.id , 
+  TransitGatewayAttachmentId = attach_vpc1.id)
+ 
+#Creating TGW route table
+ transit_gateway_rt2 = ec2_client.create_transit_gateway_route_table(TransitGatewayId = transit_gateway.id , Description = 'TGW Route Table2')
 
-#Updating TGW  route table
+#Associating the TGW Route Table
+transit_gateway_rt2_association = client.associate_transit_gateway_rt2(TransitGatewayRouteTableId = vpc2_rt2.id , 
+  TransitGatewayAttachmentId = attach_vpc2.id)
+  
+#Propagating TGW-2 traffic
+ transit_gateway_rt2.client.enable_transit_gateway_route_table_propagation(
+  TransitGatewayRouteTableId =vpc2_rt.id , 
+  TransitGatewayAttachmentId = attach_vpc2.id)
 
-  transit_gateway_rt_update1 = ec2_client.create_transit_gateway_route(TransitGatewayRouteTableId=transit_gateway_rt.id ,
+#Creating TGW route table
+ transit_gateway_rt3 = ec2_client.create_transit_gateway_route_table(TransitGatewayId = transit_gateway.id , Description = 'TGW Route Table3')
 
-   DestinationCidrBlock = '10.0.0.0/16',
+#Associating the TGW Route Table
+transit_gateway_rt3_association = client.associate_transit_gateway_rt3(TransitGatewayRouteTableId = vpc_rt3.id, 
+  TransitGatewayAttachmentId = attach_vpc3.id)
 
-   TransitGatewayAttachments=[ {'TransitGatewayAttachmentId': attach_vpc1.id}])
-
-#Updating TGW  route table
-
-  transit_gateway_rt_update2 = ec2_client.create_transit_gateway_route(TransitGatewayRouteTableId=transit_gateway_rt.id ,
-
-   DestinationCidrBlock = '10.1.0.0/16',
-
-   TransitGatewayAttachments=[ {'TransitGatewayAttachmentId': attach_vpc2.id}])
-
-#Updating TGW  route table
-
-  transit_gateway_rt_update = ec2_client.create_transit_gateway_route(TransitGatewayRouteTableId=transit_gateway_rt.id ,
-
-   DestinationCidrBlock = '10.2.0.0/16',
-
-   TransitGatewayAttachments=[ {'TransitGatewayAttachmentId': attach_vpc3.id}])
-
- #Creating Internet Gateway
-internet_gateway = ec2.create_internet_gateway
-vpc1.attach_internet_gateway(InternetGatewayId = internet_gateway.id)
-
-if __name__ == "__main__":
-
-    create_vpc_client()
+#Propagating TGW-2 traffic 
+ transit_gateway_rt3.client.enable_transit_gateway_route_table_propagation(
+  TransitGatewayRouteTableId =vpc3_rt.id , 
+  TransitGatewayAttachmentId = attach_vpc3.id)
+  
+ if __name__ == "__main__":
+  create_vpc_client():
