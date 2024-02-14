@@ -1,0 +1,100 @@
+
+Conversation opened. 1 unread message.
+
+Skip to content
+Using VIT Bhopal University Mail with screen readers
+
+1 of 15,514
+(no subject)
+External
+Inbox
+
+Srivastava, Shrishti
+Attachments
+9:17 PM (0 minutes ago)
+to me
+
+ 
+
+ One attachment
+  •  Scanned by Gmail
+#creating Application Load Balancer
+elbv2 = boto3.client('Elasticloadbalancingv2') 
+applb = elbv2.create_load_balancer(Name='MY_applb',
+                                   LoadBalancerType='application',
+                                   Subnets = [priv_subnet1_az1 , priv_subnet1_az2],
+                                   SecurityGroups = sec_group.id)
+
+#creating Target Group for EC2 instance
+target_group_ec2 = elbv2.create_target_group(
+       Name='My-target-group1',
+       Protocol='HTTP',
+       Port=80,
+       VpcId=vpc.id,  
+       TargetType='instance',
+       HealthCheckProtocol='HTTP',
+       HealthCheckPort='80',  
+       HealthCheckPath='/',
+       HealthCheckIntervalSeconds=30,  
+       HealthCheckTimeoutSeconds=5)
+
+#registering target for EC2 instance in target group
+register_tg_ec2 = elbv2_client.register_targets(TargetGroupArn = target_group_ec2.arn , 
+                                                 Targets=[{
+                                                              'Id': instances.id,
+                                                              'Port': 80,
+                                                           }])
+
+
+#creating Target Group for Lambda function in private subnet of AZ-2
+target_group_lambda = elbv2.create_target_group(Name='target-group-lambda',
+                       Protocol='HTTP',
+                       Port=80,
+                       VpcId=vpc.id,
+                       TargetType='lambda',
+                       HealthCheckProtocol='HTTP',
+                       HealthCheckPort='80',
+                       HealthCheckPath='/',
+                       HealthCheckIntervalSeconds=30,
+                       HealthCheckTimeoutSeconds=5)
+
+#registering target for Lambda Function  in target group
+register_tg_lambda = elbv2_client.register_targets(TargetGroupArn = target_group_lambda.arn , 
+                                                 Targets=[{
+                                                              'Id': lambda1.id,
+                                                              'Port': 80,
+                                                           }])
+
+
+
+
+
+#creating listener for EC2
+listener1 = elbv2.create_listener(LoadBalancerArn='applb.load_balancer_arn', 
+                                  Protocol = 'HTTP',
+                                  Port=80, 
+                                  DefaultActions = [ { 'Type': 'forward', 'TargetGroupArn':'target_group_ec2.arn'
+                                                     } , {'Type': 'forward', 'TargetGroupArn':'target_group_lambda.arn'],
+                                                        'ForwardConfig': {TargetGroups': ['TargetGroupArn': 'target_group_ec2.arn','Weight': 8},],
+                                                         'ForwardConfig': {TargetGroups': ['TargetGroupArn': 'target_group_lambda.arn','Weight': 2},])
+
+#creating rule for listener1
+rule1 = elbv2.create_rule(ListenerArn='listener1.arn', 
+                          Priority=1, 
+                          Conditions=[{'TargetGroupArn': 'target_group_ec2_arn' 
+                                      }]
+                         )
+                  
+
+
+#creating rule for listener2
+rule2 = elbv2.create_rule(ListenerArn='listener1.arn', 
+                          Priority=2, 
+                          Actions=[{'TargetGroupArn': 'target_group_lambda_arn' 
+                                   } ])
+
+
+                         
+create_elb()
+Weighted Listeners.txt
+Displaying Weighted Listeners.txt.
