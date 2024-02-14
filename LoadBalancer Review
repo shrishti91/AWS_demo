@@ -38,7 +38,7 @@ priv_RT2.create_route(DestinationCidrBlock='10.0.2.0/24')
 
 # Create a security group
 sec_group = ec2.create_security_group(
-    Description='Security group for EC2 instances and Application Load Balancer',
+    Description='Security group for EC2 instances ',
     GroupName='my-security-group',
     VpcId=vpc.id
 )
