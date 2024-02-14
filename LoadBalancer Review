@@ -44,7 +44,7 @@ sec_group = ec2.create_security_group(
 )
 
 
-# Allow inbound traffic on port 80 for both EC2 instances and the load balancer
+# Allow inbound traffic on port 80 for  EC2 instances 
 ec2.authorize_security_group_ingress(
     GroupId=sec_group.id,
     IpPermissions=[
