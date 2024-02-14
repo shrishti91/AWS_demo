@@ -1,29 +1,24 @@
+
 import boto3
- def create_elb():
-  ec2 = boto3.client('ec2')
+def create_elb():
+ ec2 = boto3.client('ec2')
 
 #create vpc
-
 vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
 
 #create subnets in AZ-1
-
 pub_subnet1_az1 = vpc.create_subnet(CidrBlock='10.0.0.0/24', AvailabilityZone='us-east-1a')
 priv_subnet1_az1 = vpc.create_subnet(CidrBlock='10.0.1.0/24', AvailabilityZone='us-east-1a')
 
 # create subnets in AZ-2
-
 pub_subnet1_az2 = vpc.create_subnet(CidrBlock='10.0.2.0/24', AvailabilityZone='us-east-1b')
 priv_subnet1_az2 = vpc.create_subnet(CidrBlock='10.0.3.0/24', AvailabilityZone='us-east-1b')
 
 #Creating Internet Gateway
-
 internet_gateway = ec2.create_internet_gateway()
 vpc.attach_internet_gateway(InternetGatewayId=internet_gateway.id)
 
 #Route tables for public subents across 2 AZs
-
-
 pub_RT1= vpc.create_route_table()
 pub_RT1.associate_with_subnet(subnetId =pub_subnet1_az1.id )
 pub_RT1.create_route(DestinationCidrBlock='0.0.0.0/0', GatewayId=internet_gateway.id)
@@ -33,7 +28,6 @@ pub_RT2.associate_with_subnet(subnetId =pub_subnet1_az2.id)
 pub_RT2.create_route(DestinationCidrBlock='0.0.0.0/0' , GatewayId=internet_gateway.id)
 
 #Route tables for private subents across 2 AZs
-
 priv_RT1 = vpc.create_route_table()
 priv_RT1.associate_with_subnet(subnetId =priv_subnet1_az1.id)
 priv_RT1.create_route(DestinationCidrBlock='10.0.0.0/24')
@@ -43,15 +37,14 @@ priv_RT2.associate_with_subnet(subnetId =priv_subnet1_az2.id)
 priv_RT2.create_route(DestinationCidrBlock='10.0.2.0/24')
 
 # Create a security group
-
 sec_group = ec2.create_security_group(
     Description='Security group for EC2 instances and Application Load Balancer',
     GroupName='my-security-group',
     VpcId=vpc.id
 )
 
-# Allow inbound traffic on port 80 for both EC2 instances and the load balancer
 
+# Allow inbound traffic on port 80 for both EC2 instances and the load balancer
 ec2.authorize_security_group_ingress(
     GroupId=sec_group.id,
     IpPermissions=[
@@ -64,17 +57,23 @@ ec2.authorize_security_group_ingress(
     ]
 )
 
-#creating EC2 instances in the private subnet of AZ-1
-
+#creating EC2 instances in private subnet of AZ-1
 instances = ec2.create_instances(ImageId='ami-id', 
-                                 InstanceType='t2.micro', 
+                                 InstanceType='t2.micro' , 
                                  MinCount=1, 
                                  MaxCount=1, 
                                  NetworkInterfaces= [{ 'SubnetId':priv_subnet1_az1.id , 'SecurityGroupIds':'[sec_group.id]'}])
+#creating IAM role for lambda 
+iam_client = boto3.client('iam')
+iam_role = iam_client.create_role(RoleName = 'LambdaExecutionRole' , 
+           AssumeRolePolicyDocument='''{"Version":"20XX-12-12" , "Statement":[{"Effect":"Allow" , "Principal":{"Service":"lambda.amazonaws.com"}]}'''
+                                 Path='/')
+
+#Attaching policy to the role to grant permission to lambda function
+iam_client.aatach_role_policy(RoleName = 'LambdaExecutionRole' ,PolicyArn='string')
 
 
-#creating Lambda function in private subnets of AZ-2
-
+#creating Lambda function in private subents of AZ-2
 lambda1 = boto3.client('lambda')
 lambda1.create_function(FunctionName='lambda_function',
                         Runtime='python3.8', 
@@ -82,7 +81,6 @@ lambda1.create_function(FunctionName='lambda_function',
                         VpcConfig= { 'SubnetIds': '[priv_subnet1_az2.id]' , 'SecurityGroupIds': '[sec_group.id]' })
 
 #creating Application Load Balancer
-
 elbv2 = boto3.client('Elasticloadbalancingv2') 
 applb = elbv2.create_load_balancer(Name='MY_applb',
                                    LoadBalancerType='application',
@@ -90,9 +88,8 @@ applb = elbv2.create_load_balancer(Name='MY_applb',
                                    SecurityGroups = sec_group.id)
 
 #creating Target Group for EC2 instance
-
 target_group_ec2 = elbv2.create_target_group(
-       Name='target-group-ec2',
+       Name='My-target-group1',
        Protocol='HTTP',
        Port=80,
        VpcId=vpc.id,  
@@ -103,8 +100,15 @@ target_group_ec2 = elbv2.create_target_group(
        HealthCheckIntervalSeconds=30,  
        HealthCheckTimeoutSeconds=5)
 
-#creating Target Group for Lambda function in the private subnet of AZ-2
+#registering target for EC2 instance in target group
+register_tg_ec2 = elbv2_client.register_targets(TargetGroupArn = target_group_ec2.arn , 
+                                                 Targets=[{
+                                                              'Id': instances.id,
+                                                              'Port': 80,
+                                                           }])
 
+
+#creating Target Group for Lambda function in private subnet of AZ-2
 target_group_lambda = elbv2.create_target_group(Name='target-group-lambda',
                        Protocol='HTTP',
                        Port=80,
@@ -116,38 +120,40 @@ target_group_lambda = elbv2.create_target_group(Name='target-group-lambda',
                        HealthCheckIntervalSeconds=30,
                        HealthCheckTimeoutSeconds=5)
 
-#creating listener for EC2
+#registering target for Lambda Function  in target group
+register_tg_lambda = elbv2_client.register_targets(TargetGroupArn = target_group_lambda.arn , 
+                                                 Targets=[{
+                                                              'Id': lambda1.id,
+                                                              'Port': 80,
+                                                           }])
 
+
+
+
+
+#creating listener for EC2
 listener1 = elbv2.create_listener(LoadBalancerArn='applb.load_balancer_arn', 
                                   Protocol = 'HTTP',
                                   Port=80, 
                                   DefaultActions = [ { 'Type': 'forward', 'TargetGroupArn':'target_group_ec2.arn'
-                                                     }]
+                                                     } , {'Type': 'forward', 'TargetGroupArn':'target_group_lambda.arn']
                                  )
 
-#creating listener for Lamda
-
-listener2 = elbv2.create_listener(LoadBalancerArn='applb.load_balancer_arn', 
-                                  Protocol = 'HTTP',
-                                  Port=80, 
-                                  DefaultActions = [ { 'Type': 'forward', 
-                                                      'TargetGroupArn':'target_group_lambda.arn'
-                                                     }]
-                                 )
-
- #creating rule for listener1
-
+#creating rule for listener1
 rule1 = elbv2.create_rule(ListenerArn='listener1.arn', 
                           Priority=1, 
                           Conditions=[{'TargetGroupArn': 'target_group_ec2_arn' 
                                       }]
                          )
+                  
+
 
 #creating rule for listener2
-
-rule2 = elbv2.create_rule(ListenerArn='listener2.arn', 
+rule2 = elbv2.create_rule(ListenerArn='listener1.arn', 
                           Priority=2, 
                           Actions=[{'TargetGroupArn': 'target_group_lambda_arn' 
                                    } ])
 
+
+                         
 create_elb()
