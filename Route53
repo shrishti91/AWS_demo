@@ -252,7 +252,8 @@ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
                                                            },
                                                        ], )
 
-
+if __name__ == "__main__":
+create_route53():
 
 
 
