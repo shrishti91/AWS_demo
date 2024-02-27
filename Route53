@@ -162,7 +162,7 @@ route53.client.change_resource_record_sets( HostedZoneId=pvthosted_zone.id,
         						   'Comment': 'string',
        						           'Changes': [
            								 {
-                							    'Action': 'UPSERT',
+                							    'Action': 'CREATE',
                 							    'ResourceRecordSet': {
                    										    'Name': 'appcloud.com',
                     										    'Type': 'A'
