@@ -6,8 +6,8 @@ def create_route53():
 vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16' )
 
 #modifying VPC attribute to enable DNS resolution and DNS hostname
-ec2.client.modify_vpc_attribute(EnableDnsHostnames={'Value': True|False},
-                                  EnableDnsSupport={'Value': True|False},
+ec2.client.modify_vpc_attribute(EnableDnsHostnames={'Value': True},
+                                  EnableDnsSupport={'Value': True},
                                   VpcId='vpc.id')
 
 #creating subnets 
@@ -88,6 +88,11 @@ app_instance = ec2.run_instances(ImageId='ami-id',
        						     }
                                                  ],)
 
+#Getting the private IP address of the EC2 instance
+ip_instance = ec2.describe_instances(InstanceId = app_instance.id )
+
+
+
 #creating virtual private gateway 
 vgw = ec2_client.create_vpn_gateway(Type = 'ipsec.1' ,  
  				    AmazonSideAsn = 64512)
@@ -122,6 +127,11 @@ sts_vpn_connection=ec2.create_vpn_connection( CustomerGatewayId='customer_gatewa
                                                                         }
             							    ]
          					 })
+
+#Create VPN static route for AWS site-to-site connection 
+ec2.create_vpn_connection_route(DestinationCidrBlock = '192.162.0.16' , 
+                                 VpnConnectionId = 'vpn_connection.id')
+
 #enabling route propagation for vpn connection
 ec2.enable_vgw_route_propagation(GatewayId=vgw.id,
                                  RouteTableId='RT_pub_subnet_id')
@@ -144,7 +154,9 @@ route53.client.associate_vpc_with_hosted_zone(HostedZoneId=pvthosted_zone.id,
  						  },
                                                Comment='Associating hosted zone with VPC')
 
-#creating a record with name app.cloud.com in EC2 instance
+
+
+#creating an A  record with name app.cloud.com in EC2 instance
 route53.client.change_resource_record_sets( HostedZoneId=pvthosted_zone.id,
     					    ChangeBatch={
         						   'Comment': 'string',
@@ -152,11 +164,11 @@ route53.client.change_resource_record_sets( HostedZoneId=pvthosted_zone.id,
            								 {
                 							    'Action': 'UPSERT',
                 							    'ResourceRecordSet': {
-                   										    'Name': 'app.cloud.com',
+                   										    'Name': 'appcloud.com',
                     										    'Type': 'A'
 									     'ResourceRecords': [
                         									   {
-                            									     'Value': 'string'
+                            									     'Value': 'ip_instance'
                         									    },
                                                                                                  ]
 								      ]})
@@ -171,7 +183,7 @@ resolversg_in = ec2_create.security.group(
 
    
 #allowing dns(udp 53) from on-premise(192.168.0.0/16)
-ec2.authorize_security_group_ingress(GroupId=resolversg_in_1.id,
+ ec2.authorize_security_group_ingress(GroupId=resolversg_in_1.id,
                                      IpPermissions=[
                                                     {'IpProtocol':'udp',
                 				     'FromPort':53,
@@ -195,8 +207,8 @@ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
                                                    ], )
 
 #create route53 resolver inbound endpoint for private subnet-2
-route53_resolver_inbound_2=boto3.client('route53resolver')
-route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
+ route53_resolver_inbound_2=boto3.client('route53resolver')
+ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
                                           SecurityGroupIds=[
                                                               'resolversg_in.id',
                                                             ],
@@ -209,8 +221,8 @@ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
 
  
 
-#creating security group for route53 resolver onbound endpoint 
-resolversg_out = ec2_create.security.group(
+#creating security group for route53 resolver inbound endpoint 
+ resolversg_out = ec2_create.security.group(
          GroupName='Resolver_security_group_for_outbound ',
          Description='SG Resolver Onbound Endpoint ',
          vpc=vpc.id
@@ -226,8 +238,8 @@ ec2.authorize_security_group_egress(GroupId=resolversg_out.id,
                                                      }])
 
 #create route53 resolver outbound endpoint in private subnet-1
-route53_resolver_outbound_1 = boto3.client('route53resolver')
-route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
+ route53_resolver_outbound_1 = boto3.client('route53resolver')
+ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
                                           SecurityGroupIds=[
                                                               'resolversg_out.id',
                                                             ],
@@ -240,8 +252,8 @@ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
 
 
 #create route53 resolver outbound endpoint in private subnet-2
-route53_resolver_outbound_2 = boto3.client('route53resolver')
-route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
+ route53_resolver_outbound_2 = boto3.client('route53resolver')
+ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
                                           SecurityGroupIds=[
                                                               'resolversg_out.id',
                                                             ],
@@ -251,6 +263,32 @@ route53_resolver.create_resolver_endpoint(CreatorRequestId='16-02-2024',
                                                                'SubnetId': 'priv_subnet_2.id',
                                                            },
                                                        ], )
+
+
+#Creating resolver rule for outbound endpoint in subnet-1
+resolver_rule_1 = route53.create_resolver_rule(CreatorRequestId = priv_subnet1.id  ,
+                                               DomainNAme = 'cloud.com'
+                                               RuleType = 'FORWARD',
+                                                Tags=[
+                                                        {
+                                                              'Key': 'your-tag-key-1',
+                                                              'Value': 'your-tag-value-1'
+                                                        },
+                                                 ResolverEndpointId = route53_resolver_outbound_1.id
+                                                    ])
+#Creating resolver rule for outbound endpoint in subnet-2
+resolver_rule_1 = route53.create_resolver_rule(CreatorRequestId = priv_subnet2.id  ,
+                                               DomainNAme = 'cloud.com'
+                                               RuleType = 'FORWARD',
+                                                Tags=[
+                                                        {
+                                                              'Key': 'your-tag-key-2',
+                                                              'Value': 'your-tag-value-2'
+                                                        },
+                                                 ResolverEndpointId = route53_resolver_outbound_2.id
+                                                    ])
+
+
 
 if __name__ == "__main__":
 create_route53():
